@@ -670,17 +670,22 @@ const setAuthTokens = async (userId, res, _session = null, req = null) => {
     const sessionExpiry = math(process.env.SESSION_EXPIRY, DEFAULT_SESSION_EXPIRY);
     const token = await generateToken(user, sessionExpiry);
 
+    // TeamForge fork: auth cookies use SameSite=Lax (not Strict) so they are sent
+    // on the top-level cross-site redirect back from an external OAuth/OIDC IdP
+    // (e.g. Cloudflare Access) on first login. Strict withholds them on that hop,
+    // causing a login-loop that only a retry fixes. Cookies stay httpOnly + Secure;
+    // state-changing requests use a bearer JWT, so CSRF exposure is unchanged.
     res.cookie('refreshToken', refreshToken, {
       expires: new Date(refreshTokenExpires),
       httpOnly: true,
       secure: shouldUseSecureCookie(),
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
     res.cookie('token_provider', 'librechat', {
       expires: new Date(refreshTokenExpires),
       httpOnly: true,
       secure: shouldUseSecureCookie(),
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
 
     setCloudFrontAuthCookies(req, res, user, { userId: user?._id ?? userId });
@@ -786,7 +791,7 @@ const setOpenIDAuthTokens = (
       expires: expirationDate,
       httpOnly: true,
       secure: shouldUseSecureCookie(),
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
 
     /** Store tokens server-side in session to avoid large cookies */
@@ -804,14 +809,14 @@ const setOpenIDAuthTokens = (
         expires: expirationDate,
         httpOnly: true,
         secure: shouldUseSecureCookie(),
-        sameSite: 'strict',
+        sameSite: 'lax',
       });
       if (tokenset.id_token) {
         res.cookie('openid_id_token', tokenset.id_token, {
           expires: expirationDate,
           httpOnly: true,
           secure: shouldUseSecureCookie(),
-          sameSite: 'strict',
+          sameSite: 'lax',
         });
       }
     }
@@ -821,7 +826,7 @@ const setOpenIDAuthTokens = (
       expires: expirationDate,
       httpOnly: true,
       secure: shouldUseSecureCookie(),
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
     if (userId && isEnabled(process.env.OPENID_REUSE_TOKENS)) {
       /** JWT-signed user ID cookie for image path validation when OPENID_REUSE_TOKENS is enabled */
@@ -832,7 +837,7 @@ const setOpenIDAuthTokens = (
         expires: expirationDate,
         httpOnly: true,
         secure: shouldUseSecureCookie(),
-        sameSite: 'strict',
+        sameSite: 'lax',
       });
     }
 
